@@ -1,0 +1,193 @@
+{% extends "_layout.html" %}
+
+{% block title %}Báo cáo{% endblock %}
+{% set active_page = 'reports' %}
+{% block page_title %}Báo cáo & Thống kê{% endblock %}
+{% block page_subtitle %}Trực quan hóa dữ liệu tài chính của bạn (UC008){% endblock %}
+
+{% block content %}
+<!-- Filter -->
+<div class="card mb-4">
+    <div class="flex flex-wrap items-center gap-3">
+        <label class="text-sm text-slate-600 font-medium">Tháng:</label>
+        <input type="month" id="report-month" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+        <button onclick="generateAIReport()" class="ml-auto bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition flex items-center gap-2">
+            <span>🤖</span> AI sinh báo cáo
+        </button>
+    </div>
+</div>
+
+<!-- AI Report Output -->
+<div id="ai-report-output" class="hidden mb-6">
+    <div class="card bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 border-indigo-100">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-indigo-900">📑 Báo cáo AI tự động</h3>
+            <button onclick="exportReport()" class="text-xs bg-white px-3 py-1 rounded-lg text-slate-600 hover:bg-slate-100 transition">
+                📄 Xuất PDF
+            </button>
+        </div>
+        <div id="ai-report-content" class="prose prose-sm max-w-none text-slate-700 whitespace-pre-line"></div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card">
+        <h3 class="font-bold text-slate-800 mb-3">🥧 Cơ cấu chi tiêu</h3>
+        <div style="height: 300px;"><canvas id="repPie"></canvas></div>
+    </div>
+    <div class="card">
+        <h3 class="font-bold text-slate-800 mb-3">📊 So sánh thu - chi 6 tháng</h3>
+        <div style="height: 300px;"><canvas id="repBar"></canvas></div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card">
+        <h3 class="font-bold text-slate-800 mb-3">📈 Xu hướng chi tiêu 7 ngày</h3>
+        <div style="height: 300px;"><canvas id="repLine"></canvas></div>
+    </div>
+    <div class="card">
+        <h3 class="font-bold text-slate-800 mb-3">🏆 Top danh mục chi nhiều nhất</h3>
+        <div id="top-categories" class="space-y-2"></div>
+    </div>
+</div>
+
+<!-- Insights Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="card bg-gradient-to-br from-emerald-50 to-emerald-100">
+        <div class="flex items-center gap-3 mb-2">
+            <span class="text-3xl">📊</span>
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Tổng thu</p>
+                <p class="text-2xl font-bold text-emerald-700" id="ins-income">0 đ</p>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-gradient-to-br from-rose-50 to-rose-100">
+        <div class="flex items-center gap-3 mb-2">
+            <span class="text-3xl">💸</span>
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Tổng chi</p>
+                <p class="text-2xl font-bold text-rose-700" id="ins-expense">0 đ</p>
+            </div>
+        </div>
+    </div>
+    <div class="card bg-gradient-to-br from-indigo-50 to-purple-100">
+        <div class="flex items-center gap-3 mb-2">
+            <span class="text-3xl">💎</span>
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Tiết kiệm</p>
+                <p class="text-2xl font-bold text-indigo-700" id="ins-save">0 đ</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let pie, line, bar;
+const today = new Date();
+document.getElementById('report-month').value = today.toISOString().slice(0,7);
+document.getElementById('report-month').addEventListener('change', loadAll);
+
+async function loadAll() {
+    const month = document.getElementById('report-month').value;
+    const res = await fetch(`/api/transactions?month=${month}`);
+    const d = await res.json();
+    const tx = d.transactions;
+    const income = tx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount, 0);
+    const expense = tx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount, 0);
+    document.getElementById('ins-income').textContent = formatVND(income);
+    document.getElementById('ins-expense').textContent = formatVND(expense);
+    document.getElementById('ins-save').textContent = formatVND(income - expense);
+
+    const byCat = {};
+    tx.filter(t=>t.type==='expense').forEach(t => { byCat[t.category_id] = (byCat[t.category_id] || 0) + t.amount; });
+    const CAT_BY_ID = Object.fromEntries({{ categories|tojson }}.map(c => [c.id, c]));
+
+    // Pie
+    const pieData = Object.entries(byCat).map(([cid, amt]) => {
+        const c = CAT_BY_ID[cid] || {name: cid, color: '#94a3b8'};
+        return {label: c.name, value: amt, color: c.color};
+    }).sort((a,b)=>b.value-a.value);
+    if (pie) pie.destroy();
+    pie = new Chart(document.getElementById('repPie'), {
+        type: 'doughnut',
+        data: { labels: pieData.map(p=>p.label), datasets: [{ data: pieData.map(p=>p.value), backgroundColor: pieData.map(p=>p.color), borderWidth: 2, borderColor: '#fff' }]},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 10 }}}}
+    });
+
+    // Top categories
+    const topHtml = pieData.slice(0, 6).map((p, i) => {
+        const pct = expense ? (p.value / expense * 100).toFixed(1) : 0;
+        return `<div class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded">
+            <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">${i+1}</div>
+            <div class="flex-1">
+                <div class="flex justify-between"><span class="text-sm font-medium">${p.label}</span><span class="text-sm font-bold text-rose-600">${formatVND(p.value)}</span></div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
+                    <div class="h-full rounded-full" style="background:${p.color};width:${pct}%"></div>
+                </div>
+            </div>
+            <span class="text-xs text-slate-500 w-12 text-right">${pct}%</span>
+        </div>`;
+    }).join('');
+    document.getElementById('top-categories').innerHTML = topHtml || '<p class="text-slate-400 text-sm">Chưa có dữ liệu</p>';
+
+    // Bar chart - 6 months
+    const chartRes = await fetch('/api/stats/charts');
+    const cd = await chartRes.json();
+    if (bar) bar.destroy();
+    bar = new Chart(document.getElementById('repBar'), {
+        type: 'bar',
+        data: {
+            labels: cd.bar.map(b => 'T' + b.month),
+            datasets: [
+                { label: 'Thu', data: cd.bar.map(b => b.income/1e6), backgroundColor: '#22c55e', borderRadius: 6 },
+                { label: 'Chi', data: cd.bar.map(b => b.expense/1e6), backgroundColor: '#ef4444', borderRadius: 6 },
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }}}
+    });
+
+    // Line - 7 days
+    if (line) line.destroy();
+    line = new Chart(document.getElementById('repLine'), {
+        type: 'line',
+        data: {
+            labels: cd.line.map(l => l.date),
+            datasets: [{ label: 'Chi (triệu)', data: cd.line.map(l => l.value/1e6),
+                borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.15)', fill: true, tension: 0.4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }}}
+    });
+}
+
+async function generateAIReport() {
+    showToast('🤖 AI đang phân tích và sinh báo cáo...', 'info');
+    const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: 'tạo báo cáo tài chính tháng này'})
+    });
+    const d = await res.json();
+    const out = document.getElementById('ai-report-output');
+    const content = document.getElementById('ai-report-content');
+    // Convert markdown to HTML (basic)
+    let html = d.reply
+        .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-indigo-900">$1</strong>')
+        .replace(/\n/g, '<br>');
+    content.innerHTML = html;
+    out.classList.remove('hidden');
+    out.scrollIntoView({ behavior: 'smooth' });
+    showToast('Đã sinh báo cáo!', 'success');
+}
+
+function exportReport() {
+    showToast('📄 Tính năng xuất PDF đang phát triển (sẽ dùng ReportLab trong backend)', 'info');
+}
+
+loadAll();
+</script>
+{% endblock %}

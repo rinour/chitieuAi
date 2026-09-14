@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Quản lý Chi tiêu AI{% endblock %} | Nhóm 12</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50:'#eef2ff', 100:'#e0e7ff', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca' },
+                        brand: '#4f46e5'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Marked.js for Markdown in chat -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+
+{% block body %}{% endblock %}
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed top-4 right-4 z-[100] space-y-2"></div>
+
+<script>
+    // ===== TOAST HELPER =====
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const colors = {
+            success: 'bg-emerald-500',
+            error: 'bg-red-500',
+            info: 'bg-blue-500',
+            warning: 'bg-amber-500'
+        };
+        const icons = {
+            success: '✓',
+            error: '✕',
+            info: 'ℹ',
+            warning: '⚠'
+        };
+        const toast = document.createElement('div');
+        toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 transform transition-all duration-300 translate-x-full`;
+        toast.innerHTML = `<span class="font-bold">${icons[type]}</span><span>${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.remove('translate-x-full'), 50);
+        setTimeout(() => {
+            toast.classList.add('translate-x-full', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // ===== FORMAT VND =====
+    function formatVND(amount) {
+        return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+    }
+</script>
+</body>
+</html>
