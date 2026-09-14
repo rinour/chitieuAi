@@ -1,0 +1,295 @@
+{% extends "_layout.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% set active_page = 'dashboard' %}
+{% block page_title %}Xin chào, {{ user.fullname.split()[-1] }} 👋{% endblock %}
+{% block page_subtitle %}Tổng quan tài chính của bạn{% endblock %}
+
+{% block content %}
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-white/80 text-xs uppercase tracking-wider font-semibold">Thu nhập</p>
+                <p class="text-2xl lg:text-3xl font-bold mt-1" id="card-income">0 đ</p>
+            </div>
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">💰</div>
+        </div>
+        <p class="text-xs text-white/70 mt-2">Tháng này</p>
+    </div>
+
+    <div class="card bg-gradient-to-br from-rose-500 to-rose-600 text-white">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-white/80 text-xs uppercase tracking-wider font-semibold">Chi tiêu</p>
+                <p class="text-2xl lg:text-3xl font-bold mt-1" id="card-expense">0 đ</p>
+            </div>
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">💸</div>
+        </div>
+        <p class="text-xs text-white/70 mt-2" id="card-tx-count">0 giao dịch</p>
+    </div>
+
+    <div class="card bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-white/80 text-xs uppercase tracking-wider font-semibold">Số dư</p>
+                <p class="text-2xl lg:text-3xl font-bold mt-1" id="card-balance">0 đ</p>
+            </div>
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🏦</div>
+        </div>
+        <p class="text-xs text-white/70 mt-2" id="card-savings">Tỷ lệ tiết kiệm: 0%</p>
+    </div>
+
+    <div class="card bg-gradient-to-br from-amber-500 to-orange-600 text-white">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-white/80 text-xs uppercase tracking-wider font-semibold">Mục tiêu</p>
+                <p class="text-2xl lg:text-3xl font-bold mt-1" id="card-goals">0</p>
+            </div>
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl">🎯</div>
+        </div>
+        <p class="text-xs text-white/70 mt-2">đang theo đuổi</p>
+    </div>
+</div>
+
+<!-- AI Insight Banner -->
+<div id="ai-insight-banner" class="mb-6 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
+    <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm flex-shrink-0">🤖</div>
+    <div class="flex-1">
+        <p class="text-sm font-semibold text-indigo-900">AI Financial Advisor</p>
+        <p class="text-sm text-slate-700 mt-1" id="ai-insight-text">Đang phân tích chi tiêu của bạn...</p>
+    </div>
+    <a href="{{ url_for('chat_page') }}" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium whitespace-nowrap">
+        Hỏi AI →
+    </a>
+</div>
+
+<!-- Charts Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <!-- Pie: Cơ cấu chi tiêu -->
+    <div class="card lg:col-span-1">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-slate-800">📊 Cơ cấu chi tiêu</h3>
+        </div>
+        <div class="relative" style="height: 280px;">
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Line: Xu hướng 7 ngày -->
+    <div class="card lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-slate-800">📈 Xu hướng chi tiêu 7 ngày</h3>
+            <span class="text-xs text-slate-500">đơn vị: triệu VNĐ</span>
+        </div>
+        <div class="relative" style="height: 280px;">
+            <canvas id="lineChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Bar chart: 6 tháng -->
+<div class="card mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-slate-800">💹 Thu vs Chi - 6 tháng gần nhất</h3>
+        <span class="text-xs text-slate-500">đơn vị: triệu VNĐ</span>
+    </div>
+    <div class="relative" style="height: 280px;">
+        <canvas id="barChart"></canvas>
+    </div>
+</div>
+
+<!-- Recent Transactions + Budget Status -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="card">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-slate-800">📝 Giao dịch gần đây</h3>
+            <a href="{{ url_for('transactions_page') }}" class="text-xs text-indigo-600 hover:underline">Xem tất cả →</a>
+        </div>
+        <div id="recent-tx" class="space-y-2 max-h-96 overflow-y-auto">
+            <p class="text-slate-400 text-sm">Đang tải...</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-slate-800">📋 Ngân sách tháng này</h3>
+            <a href="{{ url_for('budgets_page') }}" class="text-xs text-indigo-600 hover:underline">Quản lý →</a>
+        </div>
+        <div id="budget-status" class="space-y-3 max-h-96 overflow-y-auto">
+            <p class="text-slate-400 text-sm">Đang tải...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CATEGORIES = {{ categories|tojson }};
+const CAT_BY_ID = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+
+// Load summary
+async function loadSummary() {
+    const res = await fetch('/api/stats/summary');
+    const d = await res.json();
+    document.getElementById('card-income').textContent = formatVND(d.income);
+    document.getElementById('card-expense').textContent = formatVND(d.expense);
+    document.getElementById('card-balance').textContent = formatVND(d.balance);
+    document.getElementById('card-tx-count').textContent = d.tx_count + ' giao dịch';
+    document.getElementById('card-savings').textContent =
+        `Tỷ lệ tiết kiệm: ${d.savings_rate}%`;
+    document.getElementById('card-goals').textContent = d.active_goals;
+}
+
+// Load charts
+let pieChart, lineChart, barChart;
+async function loadCharts() {
+    const res = await fetch('/api/stats/charts');
+    const d = await res.json();
+
+    // Pie chart
+    if (pieChart) pieChart.destroy();
+    pieChart = new Chart(document.getElementById('pieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: d.pie.map(p => p.label),
+            datasets: [{
+                data: d.pie.map(p => p.value),
+                backgroundColor: d.pie.map(p => p.color),
+                borderWidth: 2, borderColor: '#fff',
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                            const pct = total ? (ctx.parsed/total*100).toFixed(1) : 0;
+                            return `${ctx.label}: ${formatVND(ctx.parsed)} (${pct}%)`;
+                        }
+                    }
+                }
+            },
+            cutout: '60%',
+        }
+    });
+
+    // Line chart
+    if (lineChart) lineChart.destroy();
+    lineChart = new Chart(document.getElementById('lineChart'), {
+        type: 'line',
+        data: {
+            labels: d.line.map(l => l.date),
+            datasets: [{
+                label: 'Chi tiêu (VNĐ)',
+                data: d.line.map(l => l.value / 1_000_000),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99,102,241,0.1)',
+                fill: true, tension: 0.4, pointRadius: 5,
+                pointBackgroundColor: '#6366f1',
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // Bar chart
+    if (barChart) barChart.destroy();
+    barChart = new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: {
+            labels: d.bar.map(b => b.month),
+            datasets: [
+                { label: 'Thu nhập', data: d.bar.map(b => b.income/1_000_000), backgroundColor: '#22c55e', borderRadius: 6 },
+                { label: 'Chi tiêu', data: d.bar.map(b => b.expense/1_000_000), backgroundColor: '#ef4444', borderRadius: 6 },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+}
+
+// Load recent transactions
+async function loadRecent() {
+    const res = await fetch('/api/transactions');
+    const d = await res.json();
+    const list = d.transactions.slice(0, 8);
+    const html = list.map(t => {
+        const cat = CAT_BY_ID[t.category_id] || {name: t.category_id, icon: '💰', color: '#94a3b8'};
+        const sign = t.type === 'income' ? '+' : '-';
+        const cls = t.type === 'income' ? 'text-emerald-600' : 'text-rose-600';
+        return `
+            <div class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                     style="background-color: ${cat.color}20">${cat.icon}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-slate-800 truncate">${t.description}</div>
+                    <div class="text-xs text-slate-500">${t.date} · ${t.wallet}</div>
+                </div>
+                <div class="text-sm font-bold ${cls}">${sign}${formatVND(t.amount)}</div>
+            </div>`;
+    }).join('');
+    document.getElementById('recent-tx').innerHTML = html || '<p class="text-slate-400 text-sm text-center py-4">Chưa có giao dịch</p>';
+}
+
+// Load budget status
+async function loadBudgetStatus() {
+    const res = await fetch('/api/budgets');
+    const d = await res.json();
+    const html = d.budgets.map(b => {
+        const statusColor = b.status === 'over' ? 'bg-rose-500' : b.status === 'warning' ? 'bg-amber-500' : 'bg-emerald-500';
+        const bgColor = b.status === 'over' ? 'bg-rose-50' : b.status === 'warning' ? 'bg-amber-50' : 'bg-emerald-50';
+        const textColor = b.status === 'over' ? 'text-rose-700' : b.status === 'warning' ? 'text-amber-700' : 'text-emerald-700';
+        return `
+            <div class="${bgColor} rounded-lg p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">${b.icon}</span>
+                        <span class="text-sm font-semibold ${textColor}">${b.category_name}</span>
+                    </div>
+                    <span class="text-xs font-bold ${textColor}">${b.percent}%</span>
+                </div>
+                <div class="w-full bg-white/60 rounded-full h-2 overflow-hidden">
+                    <div class="${statusColor} h-full rounded-full transition-all duration-500" style="width: ${Math.min(b.percent, 100)}%"></div>
+                </div>
+                <div class="flex justify-between mt-1 text-xs ${textColor}">
+                    <span>${formatVND(b.spent)}</span>
+                    <span>/ ${formatVND(b.limit)}</span>
+                </div>
+            </div>`;
+    }).join('');
+    document.getElementById('budget-status').innerHTML = html || '<p class="text-slate-400 text-sm">Chưa có ngân sách</p>';
+}
+
+// Load AI insight
+async function loadAIInsight() {
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: 'phân tích chi tiêu tháng này'})
+        });
+        const d = await res.json();
+        const clean = d.reply.replace(/[*#]/g, '').split('\n').slice(0, 3).join(' ');
+        document.getElementById('ai-insight-text').textContent = clean;
+    } catch (e) {
+        document.getElementById('ai-insight-text').textContent = 'Hãy truy cập trang AI Chatbot để được tư vấn chi tiết!';
+    }
+}
+
+// Init
+(async () => {
+    await Promise.all([loadSummary(), loadCharts(), loadRecent(), loadBudgetStatus(), loadAIInsight()]);
+})();
+</script>
+{% endblock %}

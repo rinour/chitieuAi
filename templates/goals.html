@@ -1,0 +1,117 @@
+{% extends "_layout.html" %}
+
+{% block title %}Mục tiêu tiết kiệm{% endblock %}
+{% set active_page = 'goals' %}
+{% block page_title %}Mục tiêu Tiết kiệm{% endblock %}
+{% block page_subtitle %}Theo đuổi các mục tiêu tài chính dài hạn (UC005){% endblock %}
+
+{% block content %}
+<!-- Add Goal Form -->
+<div class="card mb-6">
+    <h3 class="font-bold text-slate-800 mb-3">➕ Tạo mục tiêu mới</h3>
+    <form id="add-goal-form" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <input type="text" id="g-name" placeholder="Tên mục tiêu (VD: Mua xe máy)" required
+               class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+        <input type="number" id="g-target" placeholder="Số tiền mục tiêu (VNĐ)" required min="1"
+               class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition">
+            Tạo mục tiêu
+        </button>
+    </form>
+</div>
+
+<!-- Goals Grid -->
+<div id="goals-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <p class="text-slate-400">Đang tải...</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadGoals() {
+    const res = await fetch('/api/goals');
+    const d = await res.json();
+
+    const html = d.goals.map(g => {
+        const pct = Math.min(g.percent, 100);
+        const completed = g.percent >= 100;
+        const cardCls = completed ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white' :
+                        pct >= 70 ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white' :
+                        pct >= 30 ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white' :
+                        'bg-white';
+        const textCls = completed || pct >= 30 ? 'text-white' : 'text-slate-800';
+        const subCls = completed || pct >= 30 ? 'text-white/80' : 'text-slate-500';
+        const barCls = completed || pct >= 30 ? 'bg-white/40' : 'bg-slate-100';
+        const fillCls = completed ? 'bg-white' : 'bg-gradient-to-r from-indigo-500 to-purple-600';
+        return `
+        <div class="card ${cardCls} shadow-lg">
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex-1">
+                    <h4 class="font-bold ${textCls} text-lg">${completed ? '🎉 ' : '🎯 '}${g.name}</h4>
+                    <p class="text-xs ${subCls} mt-1">Mục tiêu: ${formatVND(g.target)}</p>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="${textCls} font-semibold">${formatVND(g.saved)}</span>
+                    <span class="${textCls} font-bold">${g.percent}%</span>
+                </div>
+                <div class="w-full ${barCls} rounded-full h-3 overflow-hidden">
+                    <div class="${fillCls} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                </div>
+            </div>
+            <p class="text-xs ${subCls} mb-3">
+                ${completed ? '✨ Đã hoàn thành mục tiêu!' : `Còn thiếu ${formatVND(g.remaining)}`}
+            </p>
+            ${!completed ? `
+            <div class="flex gap-2">
+                <input type="number" id="dep-${g.id}" placeholder="Nạp thêm (VNĐ)" min="1"
+                       class="flex-1 px-3 py-2 ${completed || pct >= 30 ? 'bg-white/20 text-white placeholder-white/60' : 'bg-white border border-slate-200'} rounded-lg outline-none text-sm">
+                <button onclick="depositGoal('${g.id}')" class="px-3 py-2 ${completed || pct >= 30 ? 'bg-white/30 hover:bg-white/40' : 'bg-indigo-600 hover:bg-indigo-700 text-white'} rounded-lg text-sm font-medium transition">
+                    Nạp
+                </button>
+            </div>` : ''}
+        </div>`;
+    }).join('');
+    document.getElementById('goals-grid').innerHTML = html || '<p class="text-slate-400 col-span-3 text-center py-8">Chưa có mục tiêu nào</p>';
+}
+
+document.getElementById('add-goal-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+        name: document.getElementById('g-name').value,
+        target: parseInt(document.getElementById('g-target').value),
+        saved: 0,
+    };
+    const res = await fetch('/api/goals', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (d.ok) {
+        showToast('Đã tạo mục tiêu!', 'success');
+        e.target.reset();
+        loadGoals();
+    }
+});
+
+async function depositGoal(id) {
+    const inp = document.getElementById('dep-' + id);
+    const amt = parseInt(inp.value);
+    if (!amt || amt <= 0) return showToast('Nhập số tiền hợp lệ', 'error');
+    const res = await fetch('/api/goals/' + id + '/deposit', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({amount: amt})
+    });
+    const d = await res.json();
+    if (d.ok) {
+        showToast(`Đã nạp ${formatVND(amt)} vào quỹ`, 'success');
+        loadGoals();
+    }
+}
+
+loadGoals();
+</script>
+{% endblock %}
