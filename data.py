@@ -152,6 +152,6 @@ SAMPLE_GOALS = [
 DEMO_USER = {
     "username": "demo",
     "password": "123456",
-    "fullname": "Nguyễn Xuân Phong",
-    "email": "phong.nx@ictu.edu.vn",
+    "fullname": "Admintrator",
+    "email": "dtcXXXXXXXXX@ictu.edu.vn",
 }
