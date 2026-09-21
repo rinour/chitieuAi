@@ -95,7 +95,7 @@ def _make_sample_transactions():
         ("Mua bút vở photo bài",           35000,  "expense", 4),
         ("Xem phim CGV",                  180000,  "expense", 9),
         ("Tiền xe buýt đi học",             60000,  "expense", 1),
-        ("Lương part-time gia sư",        2500000,  "income", 3),
+        ("Lương part-time gia sư",        9500000,  "income", 3),
         ("Ba mẹ cho tiền ăn",            1500000,  "income", 8),
         ("Thưởng đồ án tốt nghiệp",      1000000,  "income", 12),
         ("Mua giày thể thao mới",         650000,  "expense", 14),
