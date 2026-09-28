@@ -6,7 +6,7 @@
 
 Demo web app quản lý chi tiêu cá nhân với AI Financial Advisor Chatbot, xây dựng bằng **Python Flask** theo đúng SRS đồ án Nhóm 12.
 
-**🆕 Phiên bản nâng cấp** (theo `Prompt_nang_cap_du_an_tai_chinh.docx`):
+**🆕 Phiên bản nâng cấp v2**:
 - Forecast nâng cấp (7-day speed + budget compare + overshoot date)
 - Anomaly detection (Modified Z-score với MAD)
 - Hóa đơn định kỳ & nhắc sắp đến hạn
