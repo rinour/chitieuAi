@@ -95,7 +95,7 @@ def _make_sample_transactions():
         ("Mua bút vở photo bài",           35000,  "expense", 4),
         ("Xem phim CGV",                  180000,  "expense", 9),
         ("Tiền xe buýt đi học",             60000,  "expense", 1),
-        ("Lương part-time gia sư",        9500000,  "income", 3),
+        ("Lương part-time gia sư",        2500000,  "income", 3),
         ("Ba mẹ cho tiền ăn",            1500000,  "income", 8),
         ("Thưởng đồ án tốt nghiệp",      1000000,  "income", 12),
         ("Mua giày thể thao mới",         650000,  "expense", 14),
@@ -107,7 +107,7 @@ def _make_sample_transactions():
         ("Mua dầu gội đầu",               110000,  "expense", 21),
         ("Nạp tiền điện thoại Viettel",    50000,  "expense", 23),
         ("Tiền gửi xe máy cả tháng",       90000,  "expense", 6),
-        ("In đồ án + photo",               45000,  "expense", 27),
+        ("Tiền sạch",               90000000,  "income", 27),
     ]
 
     transactions = []
@@ -152,6 +152,6 @@ SAMPLE_GOALS = [
 DEMO_USER = {
     "username": "demo",
     "password": "123456",
-    "fullname": "Admintrator",
-    "email": "dtcXXXXXXXXX@ictu.edu.vn",
+    "fullname": "Nguyễn Xuân Phong",
+    "email": "phong.nx@ictu.edu.vn",
 }

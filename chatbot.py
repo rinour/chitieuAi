@@ -3,6 +3,15 @@ AI Chatbot - Trợ lý tài chính cá nhân (UC011)
 Đồ án Nhóm 12 - AIA331
 Đây là bản DEMO mô phỏng LLM dùng rule-based NLU + dữ liệu thật của user.
 Trong production sẽ thay bằng Gemini/OpenAI API + RAG.
+
+Nâng cấp (Prompt_nang_cap_du_an_tai_chinh.docx):
+- Forecast nâng cấp (7-day speed + budget comparison + overshoot date)
+- Anomaly detection
+- Recurring bills
+- If-Then simulation
+- Survival days / emergency fund
+- Smart round-up
+- Bill optimizer
 """
 
 from datetime import datetime
@@ -12,6 +21,15 @@ import re
 from data import (
     DEFAULT_CATEGORIES, CATEGORIES_BY_ID,
     SAMPLE_TRANSACTIONS, SAMPLE_BUDGETS, SAMPLE_GOALS,
+)
+from analytics import (
+    forecast_spending as _forecast_full,
+    detect_anomalies,
+    detect_recurring_bills,
+    simulate_scenario,
+    survival_days,
+    round_up_savings,
+    bill_optimizer,
 )
 
 # ===================== TIỆN ÍCH TÍNH TOÁN =====================
@@ -80,6 +98,26 @@ INTENT_PATTERNS = [
     ("compare",           r"(so với|so sánh|tháng trước|tăng hay giảm|khác gì)", 1),
 
     ("ocr_help",          r"(ocr|quét hóa đơn|hóa đơn|hình ảnh|chụp ảnh)", 1),
+
+    # ============ NÂNG CẤP (Prompt_nang_cap_du_an_tai_chinh.docx) ============
+    # A2. Anomaly detection (đặt trước analyze để tránh bị nuốt)
+    ("anomaly",           r"(bất thường|anomaly|đột biến|khác thường|lạ thường|khả nghi|bất thường|lạ\s\?|\blạ\b)", 3),
+    ("anomaly",           r"(khoản chi.*(lạ|bất thường|khả nghi|đột biến))", 3),
+    # B. Recurring bills
+    ("recurring",         r"(hóa đơn định kỳ|định kỳ|recurring|hóa đơn sắp|sắp đến hạn|chu kỳ thanh toán)", 2),
+    ("recurring",         r"(tiền nhà|tiền điện|tiền nước|internet|wifi).*(khi nào|đến hạn|bao giờ)", 2),
+    # C. If-Then simulation (ưu tiên cao)
+    ("simulate",          r"(nếu.*thì|mô phỏng|giả sử|what.?if|simulation|kịch bản)", 3),
+    ("simulate",          r"(\bnếu\b.*(mua|laptop|trả góp|du lịch|thu nhập|iphone|đi))", 3),
+    ("simulate",          r"(trả góp|ngân sách du lịch|thu nhập giảm)", 2),
+    # D. Survival days
+    ("survival",          r"(quỹ dự phòng|số ngày sinh tồn|sinh tồn|emergency|bao nhiêu ngày.*chi|bao lâu.*chi được)", 3),
+    ("survival",          r"(mất việc|thất nghiệp|không có thu nhập)", 1),
+    # E. Smart round-up
+    ("roundup",           r"(làm tròn|round.?up|roundup|tiết kiệm lẻ|tích lũy lẻ|siêu tiết kiệm)", 2),
+    # F. Bill optimizer
+    ("bill_optimize",     r"(tối ưu.*(hóa đơn|chi phí|subscription)|cắt giảm subscription|đề xuất.*dịch vụ|gói.*rẻ hơn|cắt\s+subscription)", 3),
+    ("bill_optimize",     r"(subscription|dịch vụ định kỳ)", 1),
 
     ("help",              r"(bạn làm được gì|giúp được gì|chức năng|tính năng|hướng dẫn)", 1),
 ]
@@ -185,22 +223,33 @@ def _resp_balance():
 
 
 def _resp_forecast():
-    tx = _this_month_tx()
-    exp_now = _total_by_type(tx, "expense")
-    today = datetime.now()
-    day = today.day
-    days_in_month = 30
-    avg_per_day = exp_now / day if day else 0
-    forecast = int(avg_per_day * days_in_month)
-    diff = forecast - exp_now
-    return (
-        f"🔮 **Dự báo chi tiêu cuối tháng:**\n"
-        f"  • Đã chi {_day_count(day)} ngày: **{_format_vnd(exp_now)}**\n"
-        f"  • Trung bình/ngày: **{_format_vnd(int(avg_per_day))}**\n"
-        f"  • Ước tính cuối tháng: **{_format_vnd(forecast)}**\n"
-        f"  • Có thể chi thêm: **{_format_vnd(diff)}**\n\n"
-        f"_Dựa trên thuật toán Time-series Moving Average đơn giản._"
-    )
+    """Dự báo chi tiêu cuối tháng - phiên bản nâng cấp (A1).
+
+    Sử dụng analytics.forecast_spending() với 7-day speed + budget compare.
+    """
+    f = _forecast_full()
+    if not f.get("has_data"):
+        return f"🔮 {f.get('message', 'Chưa có dữ liệu để dự báo.')}"
+
+    lines = [
+        f"🔮 **Dự báo chi tiêu cuối tháng {f['month']}:**\n",
+        f"  • Đã chi **{f['days_elapsed']} ngày**: **{_format_vnd(f['spent_so_far'])}**",
+        f"  • Tốc độ 7 ngày gần nhất: **{_format_vnd(f['speed_7day'])}/ngày**",
+        f"  • Tốc độ từ đầu tháng: **{_format_vnd(f['avg_per_day'])}/ngày**",
+        f"  • Tốc độ kết hợp (70% recent + 30% month): **{_format_vnd(f['combined_speed'])}/ngày**",
+        f"  • Ước tính cuối tháng: **{_format_vnd(f['forecast_total'])}**",
+    ]
+    if f.get("budget_total"):
+        lines.append(f"  • Ngân sách tháng: **{_format_vnd(f['budget_total'])}**")
+        diff = f.get("diff_vs_budget", 0) or 0
+        if diff > 0:
+            lines.append(f"  • ⚠️ Dự kiến **vượt ngân sách {_format_vnd(diff)}**")
+        else:
+            lines.append(f"  • ✅ Dự kiến tiết kiệm được **{_format_vnd(-diff)}**")
+        if f.get("overshoot_date"):
+            lines.append(f"  • 🚨 Ngày vượt ngân sách dự kiến: **{f['overshoot_date']}**")
+    lines.append(f"\n_Cập nhật theo thuật toán Moving Average có trọng số._")
+    return "\n".join(lines)
 
 
 def _resp_budget_check():
@@ -418,6 +467,234 @@ def _resp_ocr():
     )
 
 
+# ===================== NÂNG CẤP (Prompt_nang_cap_du_an_tai_chinh.docx) =====================
+
+def _resp_anomaly():
+    """A2: Phát hiện khoản chi bất thường."""
+    anomalies = detect_anomalies()
+    if not anomalies:
+        return "✅ Không phát hiện khoản chi bất thường nào trong tháng này. Mọi thứ đều trong tầm kiểm soát!"
+    lines = [f"⚠️ **Phát hiện {len(anomalies)} khoản chi bất thường:**\n"]
+    for a in anomalies[:5]:
+        sev = "🚨" if a["severity"] == "high" else "⚠️"
+        lines.append(
+            f"  {sev} **{a['category_icon']} {a['description'][:40]}**\n"
+            f"     → Số tiền: **{_format_vnd(a['amount'])}** "
+            f"(_gấp {a['ratio']}× so với thông thường {_format_vnd(a['median_amount'])}_)\n"
+            f"     → Z-score: {a['z_score']} ({a['severity']})"
+        )
+    lines.append("\n_Bạn có thể xác nhận là bình thường (nếu đúng) hoặc bỏ qua cảnh báo._")
+    return "\n".join(lines)
+
+
+def _resp_recurring():
+    """B: Hóa đơn định kỳ và sắp đến hạn."""
+    bills = detect_recurring_bills()
+    if not bills:
+        return "📋 Chưa phát hiện hóa đơn định kỳ nào trong lịch sử giao dịch."
+    lines = [f"📋 **Hóa đơn định kỳ đã phát hiện ({len(bills)} khoản):**\n"]
+    imminent = [b for b in bills if b.get("is_imminent")]
+    upcoming = [b for b in bills if b.get("is_upcoming") and not b.get("is_imminent")]
+    if imminent:
+        lines.append("🚨 **SẮP ĐẾN HẠN (≤3 ngày):**")
+        for b in imminent:
+            lines.append(
+                f"  • {b['category_icon']} **{b['label'].title()}** — "
+                f"~{_format_vnd(b['avg_amount'])} "
+                f"vào **{b['next_date_str']}** (còn {b['days_until']} ngày)"
+            )
+        lines.append("")
+    if upcoming:
+        lines.append("⏰ **Sắp tới (≤7 ngày):**")
+        for b in upcoming:
+            lines.append(
+                f"  • {b['category_icon']} {b['label'].title()} — "
+                f"~{_format_vnd(b['avg_amount'])} vào {b['next_date_str']}"
+            )
+        lines.append("")
+    lines.append("📌 **Tất cả các hóa đơn:**")
+    for b in bills:
+        lines.append(
+            f"  • {b['category_icon']} {b['label'].title()}: "
+            f"~{_format_vnd(b['avg_amount'])}/{b['cycle_text']} "
+            f"(lần cuối: {b['last_date']}, kế tiếp: {b['next_date_str']})"
+        )
+    lines.append("\n_Mình sẽ nhắc trước khoảng 2-3 ngày. Lưu ý: chỉ nhắc, không tự động trừ tiền thật._")
+    return "\n".join(lines)
+
+
+def _resp_simulate(text):
+    """C: Mô phỏng kịch bản If-Then từ text của user."""
+    t = text.lower()
+
+    # Detect scenario type + params
+    amount = extract_amount(text)
+    scenario_type = None
+    params = {}
+
+    # Trả góp
+    if re.search(r"trả góp|góp|installment|laptop", t):
+        scenario_type = "monthly_installment"
+        params["amount"] = amount or 2_000_000
+        # Tìm số tháng nếu có
+        m = re.search(r"(\d+)\s*tháng", t)
+        params["months"] = int(m.group(1)) if m else 12
+    # Thu nhập giảm/tăng
+    elif re.search(r"thu nhập (giảm|tăng)", t):
+        scenario_type = "income_change"
+        m = re.search(r"(giảm|tăng)\s*(\d+)\s*%", t)
+        if m:
+            sign = -1 if m.group(1) == "giảm" else 1
+            params["percent"] = sign * int(m.group(2))
+        else:
+            params["percent"] = -20
+    # Du lịch / tiết kiệm mục tiêu
+    elif re.search(r"du lịch|tiết kiệm.*mục tiêu|tiết kiệm.*tháng", t):
+        scenario_type = "savings_target"
+        params["target"] = amount or 5_000_000
+        m = re.search(r"tháng\s*(\d+)|(\d+)\s*tháng", t)
+        if m:
+            params["months"] = int(m.group(1) or m.group(2))
+        else:
+            params["months"] = 3
+    # Mua 1 lần lớn
+    elif re.search(r"mua|laptop|xe|điện thoại|i\s?phone", t):
+        scenario_type = "lump_sum_expense"
+        params["amount"] = amount or 20_000_000
+    else:
+        return (
+            "🤔 Mình chưa xác định được kịch bản. Bạn có thể hỏi rõ hơn:\n\n"
+            "  • \"Nếu mua laptop trả góp 2 triệu/tháng thì sao?\"\n"
+            "  • \"Nếu thu nhập giảm 20% thì tình hình thế nào?\"\n"
+            "  • \"Nếu đi du lịch 5 triệu trong 3 tháng tới?\"\n"
+            "  • \"Nếu mua iPhone 20 triệu?\""
+        )
+
+    r = simulate_scenario(scenario_type, **params)
+
+    lines = [f"🧪 **Mô phỏng kịch bản:** `{scenario_type}`\n"]
+    lines.append(f"📋 **Hiện tại:**")
+    lines.append(f"  • Thu nhập tháng: **{_format_vnd(r['current']['income_month'])}**")
+    lines.append(f"  • Chi tiêu tháng: **{_format_vnd(r['current']['expense_month'])}**")
+    lines.append(f"  • Số dư tháng: **{_format_vnd(r['current']['balance_month'])}**")
+    if r['current']['total_budget']:
+        lines.append(f"  • Tổng ngân sách: **{_format_vnd(r['current']['total_budget'])}**")
+    lines.append(f"\n🔮 **Sau kịch bản:**")
+    for k, v in r["after"].items():
+        lines.append(f"  • {k}: **{_format_vnd(v) if isinstance(v, (int, float)) else v}**")
+    if r["impact"]:
+        lines.append(f"\n📊 **Tác động:**")
+        for k, v in r["impact"].items():
+            if k == "warning":
+                lines.append(f"  • {v}")
+            else:
+                lines.append(f"  • {k}: **{_format_vnd(v) if isinstance(v, (int, float)) else v}**")
+    lines.append("\n_⚠️ Đây là mô phỏng - không ghi vào dữ liệu thật._")
+    return "\n".join(lines)
+
+
+def _resp_survival():
+    """D: Số ngày sinh tồn và quỹ dự phòng."""
+    sd = survival_days()
+    if not sd.get("has_data"):
+        return f"🛡️ {sd.get('message', 'Chưa có dữ liệu.')}"
+
+    level_emoji = {
+        "safe": "✅", "watch": "👀",
+        "warning": "⚠️", "danger": "🚨"
+    }
+    level_text = {
+        "safe": "An toàn", "watch": "Cần chú ý",
+        "warning": "Cảnh báo", "danger": "Nguy hiểm"
+    }
+    emoji = level_emoji.get(sd["level"], "•")
+    label = level_text.get(sd["level"], "")
+
+    lines = [
+        f"🛡️ **Số ngày sinh tồn (Quỹ dự phòng):**\n",
+        f"  • Số dư khả dụng: **{_format_vnd(sd['balance_available'])}**",
+        f"  • Chi phí thiết yếu trung bình/ngày: **{_format_vnd(sd['essential_per_day'])}** "
+        f"(_dựa trên 30 ngày qua: {_format_vnd(sd['essential_total_30d'])}_)",
+        f"  • **{emoji} Có thể duy trì khoảng {sd['survival_days']} ngày** ({label})\n",
+    ]
+    if sd["level"] == "danger":
+        lines.append("🚨 **Quỹ hiện tại đã âm.** Hãy xem xét cắt giảm chi tiêu ngay.")
+    elif sd["level"] == "warning":
+        lines.append("⚠️ **Quỹ dưới 30 ngày.** Nên tăng thu nhập hoặc giảm chi tiêu thiết yếu.")
+    elif sd["level"] == "watch":
+        lines.append("👀 Quỹ ở mức chú ý. Duy trì tiết kiệm và tăng thu nhập.")
+    else:
+        lines.append("✅ Quỹ dự phòng an toàn. Tiếp tục duy trì!")
+    lines.append(
+        "\n📐 **Công thức:** Số ngày = Số dư khả dụng ÷ Chi phí thiết yếu/ngày.\n"
+        "Chi phí thiết yếu gồm: Ăn uống, Nhà ở, Điện/Nước, Đi lại, Sức khỏe, Internet."
+    )
+    return "\n".join(lines)
+
+
+def _resp_roundup():
+    """E: Smart round-up / micro-savings."""
+    r = round_up_savings()
+    if r["scope"] == "single":
+        return (
+            f"💰 **Làm tròn tiết kiệm:**\n"
+            f"  • Giao dịch: **{_format_vnd(r['amount'])}**\n"
+            f"  • Làm tròn: **{_format_vnd(r['rounded'])}**\n"
+            f"  • Tiết kiệm được: **{_format_vnd(r['saved'])}** ✨"
+        )
+    # Month scope
+    if r["items_count"] == 0:
+        return "💰 Chưa có giao dịch chi tiêu nào trong tháng để áp dụng làm tròn."
+    lines = [
+        f"💰 **Smart Micro-Savings (Làm tròn tiết kiệm) - Tháng này:**\n",
+        f"  • Tổng chi gốc: **{_format_vnd(r['total_original'])}**",
+        f"  • Tổng sau làm tròn: **{_format_vnd(r['total_rounded'])}**",
+        f"  • **Tiết kiệm thêm được: {_format_vnd(r['total_saved'])}** ✨\n",
+        f"📋 **Chi tiết (top 10):**",
+    ]
+    for it in r["items"][:10]:
+        lines.append(
+            f"  • {it['description'][:30]}: "
+            f"{_format_vnd(it['amount'])} → {_format_vnd(it['rounded'])} "
+            f"_(+{_format_vnd(it['saved'])})_"
+        )
+    lines.append(
+        f"\n💡 **Gợi ý:** Bật chế độ làm tròn để tự động nạp {_format_vnd(r['total_saved'])} "
+        f"vào quỹ tiết kiệm mỗi tháng."
+    )
+    lines.append("\n_⚠️ Chỉ gợi ý - không tự động trừ tiền, không làm sai lệch giao dịch gốc._")
+    return "\n".join(lines)
+
+
+def _resp_bill_optimize():
+    """F: AI Deal & Bill Optimizer."""
+    bo = bill_optimizer()
+    if not bo.get("has_data"):
+        return f"💸 {bo.get('message', 'Chưa có dữ liệu.')}"
+
+    lines = [
+        f"💸 **AI Deal & Bill Optimizer:**\n",
+        f"  • Số hóa đơn định kỳ: **{bo['bills_count']}**",
+        f"  • Tổng chi/tháng: **{_format_vnd(bo['monthly_total'])}**",
+        f"  • Quy đổi năm: **{_format_vnd(bo['yearly_total'])}**\n",
+    ]
+    if bo.get("low_usage_count"):
+        lines.append(f"⚠️ **Có {bo['low_usage_count']} subscription có dấu hiệu ít sử dụng:**")
+        for b in bo["low_usage"][:3]:
+            lines.append(f"  • {b['label']} - {b['avg_amount']:,.0f}đ/{b['cycle_text']}")
+        lines.append("")
+
+    if bo["suggestions"]:
+        lines.append("💡 **Đề xuất tối ưu:**")
+        for s in bo["suggestions"][:5]:
+            lines.append(f"  • **{s['title']}**\n     {s['detail']}")
+    else:
+        lines.append("✅ Danh sách subscription hiện tại hợp lý, không phát hiện khoản thừa.")
+
+    lines.append("\n_⚠️ Không bịa giá/khuyến mãi. Trong production sẽ tích hợp API so sánh giá._")
+    return "\n".join(lines)
+
+
 def _resp_greeting():
     hour = datetime.now().hour
     if hour < 12:  tod = "Chào buổi sáng"
@@ -492,6 +769,13 @@ RESPONSE_HANDLERS = {
     "goal_check":       _resp_goal_check,
     "compare":          _resp_compare,
     "ocr_help":         _resp_ocr,
+    # ============ NÂNG CẤP ============
+    "anomaly":          _resp_anomaly,
+    "recurring":        _resp_recurring,
+    "simulate":         _resp_simulate,   # cần text
+    "survival":         _resp_survival,
+    "roundup":          _resp_roundup,
+    "bill_optimize":    _resp_bill_optimize,
 }
 
 
@@ -500,11 +784,10 @@ def chat(message: str, history=None):
     intent, confidence = classify_intent(message)
     handler = RESPONSE_HANDLERS.get(intent, _resp_unknown)
     if handler is _resp_unknown:
-        # unknown: truyền text vào để hiển thị trong phản hồi
         reply = _resp_unknown(message)
     else:
-        # handler cần message: riêng _resp_save_tips & _resp_category_spending
-        if intent in ("save_tips", "category_spending"):
+        # Một số handler cần text (category_spending, save_tips, simulate)
+        if intent in ("save_tips", "category_spending", "simulate"):
             reply = handler(message)
         else:
             reply = handler()

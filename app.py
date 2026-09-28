@@ -13,6 +13,10 @@ from data import (
     DEMO_USER, ai_auto_categorize,
 )
 from chatbot import chat as chatbot_reply
+from analytics import (
+    forecast_spending, detect_anomalies, detect_recurring_bills,
+    simulate_scenario, survival_days, round_up_savings, bill_optimizer,
+)
 
 app = Flask(__name__)
 app.secret_key = "nhom12-aia331-secret-key-demo"
@@ -104,6 +108,16 @@ def chat_page():
         return redirect(url_for("login"))
     return render_template("chat.html",
                            user=session["user"])
+
+
+@app.route("/insights")
+def insights_page():
+    """Trang tổng hợp các tính năng AI nâng cấp (Prompt_nang_cap_du_an_tai_chinh.docx)."""
+    if not _login_required():
+        return redirect(url_for("login"))
+    return render_template("insights.html",
+                           user=session["user"],
+                           categories=DEFAULT_CATEGORIES)
 
 
 # ===================== API: TRANSACTIONS =====================
@@ -354,13 +368,122 @@ def api_chat_suggestions():
         "suggestions": [
             "📊 Phân tích chi tiêu tháng này",
             "💰 Tháng này chi nhiều nhất vào đâu?",
-            "💸 Làm sao tiết kiệm 2 triệu?",
-            "📋 Tình hình ngân sách hiện tại",
+            "⚠️ Khoản chi nào bất thường?",
+            "📋 Hóa đơn định kỳ sắp đến hạn",
             "🔮 Dự báo chi tiêu cuối tháng",
+            "🛡️ Quỹ dự phòng của tôi",
+            "🧪 Nếu mua laptop trả góp 2 triệu/tháng thì sao?",
+            "💰 Làm tròn tiết kiệm tháng này",
+            "💸 Tối ưu hóa đơn định kỳ",
             "🎯 Tiến độ mục tiêu tiết kiệm",
             "📑 Tạo báo cáo tài chính tháng này",
             "💡 Gợi ý ngân sách tháng tới",
         ]
+    })
+
+
+# ===================== NÂNG CẤP: APIs mới (Prompt_nang_cap_du_an_tai_chinh.docx) =====================
+
+@app.route("/api/forecast")
+def api_forecast():
+    """A1: Dự báo chi tiêu cuối tháng (nâng cấp)."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(forecast_spending())
+
+
+@app.route("/api/anomalies")
+def api_anomalies():
+    """A2: Phát hiện giao dịch bất thường."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify({"anomalies": detect_anomalies()})
+
+
+@app.route("/api/recurring")
+def api_recurring():
+    """B: Hóa đơn định kỳ và sắp đến hạn."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    bills = detect_recurring_bills()
+    imminent = [b for b in bills if b.get("is_imminent")]
+    return jsonify({
+        "bills": bills,
+        "total": len(bills),
+        "imminent_count": len(imminent),
+    })
+
+
+@app.route("/api/simulate", methods=["POST"])
+def api_simulate():
+    """C: Mô phỏng kịch bản If-Then. Không ghi vào dữ liệu thật."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json() or {}
+    scenario_type = data.get("scenario_type")
+    if not scenario_type:
+        return jsonify({"error": "missing scenario_type"}), 400
+    allowed = {"monthly_installment", "income_change", "lump_sum_expense", "savings_target"}
+    if scenario_type not in allowed:
+        return jsonify({"error": f"invalid scenario_type. Allowed: {allowed}"}), 400
+    try:
+        result = simulate_scenario(
+            scenario_type,
+            amount=int(data.get("amount", 0) or 0),
+            months=int(data.get("months", 1) or 1),
+            percent=float(data.get("percent", 0) or 0),
+            target=int(data.get("target", 0) or 0),
+        )
+        return jsonify(result)
+    except (TypeError, ValueError) as e:
+        return jsonify({"error": f"invalid params: {str(e)}"}), 400
+
+
+@app.route("/api/survival")
+def api_survival():
+    """D: Số ngày sinh tồn / Quỹ dự phòng."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(survival_days())
+
+
+@app.route("/api/roundup")
+def api_roundup():
+    """E: Smart round-up micro-savings."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    tx_amount = request.args.get("amount", type=int)
+    return jsonify(round_up_savings(tx_amount=tx_amount))
+
+
+@app.route("/api/bill-optimize")
+def api_bill_optimize():
+    """F: AI Deal & Bill Optimizer."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    return jsonify(bill_optimizer())
+
+
+@app.route("/api/insights")
+def api_insights():
+    """API tổng hợp insights cho dashboard widget."""
+    if not _login_required():
+        return jsonify({"error": "unauthorized"}), 401
+    f = forecast_spending()
+    s = survival_days()
+    a = detect_anomalies()
+    r = detect_recurring_bills()
+    imminent_bills = [b for b in r if b.get("is_imminent")]
+    upcoming_bills = [b for b in r if b.get("is_upcoming") and not b.get("is_imminent")]
+    return jsonify({
+        "forecast": f,
+        "survival": s,
+        "anomalies_count": len(a),
+        "top_anomaly": a[0] if a else None,
+        "recurring_total": len(r),
+        "recurring_monthly": sum(b["avg_amount"] for b in r),
+        "imminent_bills": imminent_bills[:3],
+        "upcoming_bills": upcoming_bills[:3],
     })
 
 
@@ -372,10 +495,13 @@ def not_found(_e):
 
 
 if __name__ == "__main__":
+    import os
+    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
     print("=" * 60)
     print("🚀 Hệ thống Quản lý Chi tiêu Cá nhân tích hợp AI")
     print("=" * 60)
     print(f"📂 Mở trình duyệt: http://localhost:5000")
     print(f"🔐 Tài khoản demo:  user = demo,  pass = 123456")
+    print(f"⚙️  Debug mode: {debug}")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=debug, use_reloader=debug)

@@ -6,37 +6,65 @@
 
 Demo web app quản lý chi tiêu cá nhân với AI Financial Advisor Chatbot, xây dựng bằng **Python Flask** theo đúng SRS đồ án Nhóm 12.
 
+**🆕 Phiên bản nâng cấp** (theo `Prompt_nang_cap_du_an_tai_chinh.docx`):
+- Forecast nâng cấp (7-day speed + budget compare + overshoot date)
+- Anomaly detection (Modified Z-score với MAD)
+- Hóa đơn định kỳ & nhắc sắp đến hạn
+- Mô phỏng kịch bản "Nếu - Thì"
+- Số ngày sinh tồn / Quỹ dự phòng
+- Smart Round-up (Micro-savings)
+- AI Bill Optimizer
+- Trang `/insights` tổng hợp 6 widget AI
+
 ---
 
 ## ✨ Tính năng chính
 
-| # | Chức năng | Use Case | Trạng thái |
-|---|-----------|----------|------------|
-| 1 | Đăng nhập / Quản lý tài khoản | UC001 | ✅ |
-| 2 | Quản lý danh mục thu/chi (12 danh mục) | UC002 | ✅ |
-| 3 | Ghi nhận giao dịch (CRUD + AI auto-categorize) | UC003 | ✅ |
-| 4 | Thiết lập & theo dõi ngân sách | UC004 | ✅ |
-| 5 | Quản lý mục tiêu tiết kiệm | UC005 | ✅ |
-| 6 | Tìm kiếm & lọc giao dịch | UC006 | ✅ |
-| 7 | Cảnh báo vượt ngân sách (70%/90%/100%) | UC007 | ✅ |
-| 8 | Thống kê & trực quan hóa (Pie/Bar/Line) | UC008 | ✅ |
-| 9 | AI sinh báo cáo tài chính tháng | UC009 | ✅ (Demo) |
-| 10 | AI gợi ý ngân sách tham khảo | UC010 | ✅ (Demo) |
-| 11 | **AI Chatbot tư vấn tài chính** | UC011 | ✅ (Demo) |
-| 12 | Bảo vệ dữ liệu (PII Masking concept) | UC012 | 📋 |
+| # | Chức năng | Use Case | Phiên bản |
+|---|-----------|----------|-----------|
+| 1 | Đăng nhập / Quản lý tài khoản | UC001 | v1 |
+| 2 | Quản lý danh mục thu/chi (12 danh mục) | UC002 | v1 |
+| 3 | Ghi nhận giao dịch (CRUD + AI auto-categorize) | UC003 | v1 |
+| 4 | Thiết lập & theo dõi ngân sách | UC004 | v1 |
+| 5 | Quản lý mục tiêu tiết kiệm | UC005 | v1 |
+| 6 | Tìm kiếm & lọc giao dịch | UC006 | v1 |
+| 7 | Cảnh báo vượt ngân sách (70%/90%/100%) | UC007 | v1 |
+| 8 | Thống kê & trực quan hóa (Pie/Bar/Line) | UC008 | v1 |
+| 9 | AI sinh báo cáo tài chính tháng | UC009 | v1 |
+| 10 | AI gợi ý ngân sách tham khảo | UC010 | v1 |
+| 11 | **AI Chatbot tư vấn tài chính** (24 intent) | UC011 | v1 + v2 |
+| 12 | Bảo vệ dữ liệu (PII Masking concept) | UC012 | v1 |
+| **13** | **🔮 Forecast nâng cấp** (7-day speed + budget compare + overshoot date) | A1 | **v2 MỚI** |
+| **14** | **⚠️ Anomaly Detection** (Modified Z-score với MAD) | A2 | **v2 MỚI** |
+| **15** | **📋 Hóa đơn định kỳ** (auto-detect + nhắc trước 2-3 ngày) | B | **v2 MỚI** |
+| **16** | **🧪 If-Then Simulation** (trả góp, lương, du lịch, mua 1 lần) | C | **v2 MỚI** |
+| **17** | **🛡️ Số ngày sinh tồn / Quỹ dự phòng** | D | **v2 MỚI** |
+| **18** | **💰 Smart Round-up / Micro-savings** | E | **v2 MỚI** |
+| **19** | **💸 AI Bill Optimizer** (subscription analysis + đề xuất) | F | **v2 MỚI** |
 
 ---
 
 ## 🤖 AI Chatbot Demo - Tính năng nổi bật
 
-Chatbot hiểu **tiếng Việt có dấu**, có thể trả lời:
+Chatbot hiểu **tiếng Việt có dấu**, **24 intent** (18 cũ + 6 mới), có thể trả lời:
 
-### 📊 Phân tích
+### 📊 Phân tích (v1)
 - "Tháng này chi nhiều nhất vào đâu?"
 - "Phân tích chi tiêu tháng này"
 - "Tổng chi bao nhiêu?"
 - "Tổng thu nhập tháng này"
 - "Còn lại bao nhiêu?"
+
+### 🆕 Tính năng nâng cấp (v2)
+- **Forecast nâng cấp**: "Dự báo chi tiêu cuối tháng" — phân tích 7-day speed + ngân sách + ngày vượt
+- **Anomaly**: "Có khoản chi nào bất thường/lạ không?" — Modified Z-score
+- **Recurring**: "Hóa đơn định kỳ sắp đến hạn?" / "Tiền điện bao giờ đến hạn?"
+- **Simulation**: "Nếu mua laptop trả góp 2 triệu/tháng thì sao?"
+- **Simulation**: "Nếu thu nhập giảm 20% thì tình hình thế nào?"
+- **Simulation**: "Nếu đi du lịch 5 triệu trong 3 tháng?"
+- **Survival**: "Quỹ dự phòng của tôi" / "Số ngày sinh tồn"
+- **Round-up**: "Làm tròn tiết kiệm"
+- **Bill Optimizer**: "Tối ưu hóa đơn"
 
 ### 💡 Tư vấn tiết kiệm
 - "Làm sao tiết kiệm 2 triệu?"
