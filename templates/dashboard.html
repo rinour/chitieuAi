@@ -53,16 +53,51 @@
     </div>
 </div>
 
+<!-- AI Upgrade Summary (compact widgets) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="card border-l-4 border-indigo-400">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Dự báo cuối tháng</p>
+                <p class="text-xl font-bold text-slate-800 mt-1" id="dash-forecast">—</p>
+                <p class="text-xs text-slate-500 mt-1" id="dash-forecast-sub"></p>
+            </div>
+            <span class="text-3xl">🔮</span>
+        </div>
+    </div>
+    <div class="card border-l-4 border-emerald-400">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Số ngày sinh tồn</p>
+                <p class="text-xl font-bold text-slate-800 mt-1" id="dash-survival">—</p>
+                <p class="text-xs text-slate-500 mt-1" id="dash-survival-sub"></p>
+            </div>
+            <span class="text-3xl">🛡️</span>
+        </div>
+    </div>
+    <div class="card border-l-4 border-amber-400">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Cảnh báo</p>
+                <p class="text-xl font-bold text-slate-800 mt-1" id="dash-alert">—</p>
+                <p class="text-xs text-slate-500 mt-1" id="dash-alert-sub"></p>
+            </div>
+            <span class="text-3xl">⚠️</span>
+        </div>
+    </div>
+</div>
+
 <!-- AI Insight Banner -->
 <div id="ai-insight-banner" class="mb-6 bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
     <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm flex-shrink-0">🤖</div>
     <div class="flex-1">
         <p class="text-sm font-semibold text-indigo-900">AI Financial Advisor</p>
         <p class="text-sm text-slate-700 mt-1" id="ai-insight-text">Đang phân tích chi tiêu của bạn...</p>
+        <div class="flex gap-3 mt-2 text-xs">
+            <a href="{{ url_for('insights_page') }}" class="text-purple-700 hover:underline font-semibold">🧠 Xem AI Insights →</a>
+            <a href="{{ url_for('chat_page') }}" class="text-indigo-600 hover:underline font-semibold">💬 Hỏi AI Chatbot</a>
+        </div>
     </div>
-    <a href="{{ url_for('chat_page') }}" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium whitespace-nowrap">
-        Hỏi AI →
-    </a>
 </div>
 
 <!-- Charts Grid -->
@@ -287,9 +322,58 @@ async function loadAIInsight() {
     }
 }
 
+// Load AI Upgrade widgets (compact summary)
+async function loadInsightsSummary() {
+    try {
+        const res = await fetch('/api/insights');
+        const d = await res.json();
+        // Forecast
+        if (d.forecast && d.forecast.has_data) {
+            document.getElementById('dash-forecast').textContent = formatVND(d.forecast.forecast_total);
+            const diff = d.forecast.diff_vs_budget || 0;
+            const sub = diff > 0
+                ? `⚠️ Vượt ${formatVND(diff)} so với ngân sách`
+                : `✅ Trong ngân sách ${formatVND(d.forecast.budget_total || 0)}`;
+            document.getElementById('dash-forecast-sub').textContent = sub;
+        } else {
+            document.getElementById('dash-forecast').textContent = '—';
+            document.getElementById('dash-forecast-sub').textContent = 'Chưa đủ dữ liệu';
+        }
+        // Survival
+        if (d.survival && d.survival.has_data) {
+            document.getElementById('dash-survival').textContent = `${d.survival.survival_days} ngày`;
+            const lvlTxt = {safe:'✅ An toàn',watch:'👀 Chú ý',warning:'⚠️ Cảnh báo',danger:'🚨 Nguy hiểm'};
+            document.getElementById('dash-survival-sub').textContent =
+                `${lvlTxt[d.survival.level] || '—'} · Chi thiết yếu ${formatVND(d.survival.essential_per_day)}/ngày`;
+        } else {
+            document.getElementById('dash-survival').textContent = '—';
+            document.getElementById('dash-survival-sub').textContent = 'Chưa đủ dữ liệu';
+        }
+        // Alerts
+        const anomalyCount = d.anomalies_count || 0;
+        const imminentCount = (d.imminent_bills || []).length;
+        const total = anomalyCount + imminentCount;
+        if (total === 0) {
+            document.getElementById('dash-alert').textContent = '✅';
+            document.getElementById('dash-alert-sub').textContent = 'Không có cảnh báo';
+        } else {
+            document.getElementById('dash-alert').textContent = `${total} cảnh báo`;
+            const parts = [];
+            if (anomalyCount) parts.push(`${anomalyCount} chi bất thường`);
+            if (imminentCount) parts.push(`${imminentCount} hóa đơn sắp đến hạn`);
+            document.getElementById('dash-alert-sub').textContent = parts.join(' · ');
+        }
+    } catch (e) {
+        console.error('insights summary error', e);
+    }
+}
+
 // Init
 (async () => {
-    await Promise.all([loadSummary(), loadCharts(), loadRecent(), loadBudgetStatus(), loadAIInsight()]);
+    await Promise.all([
+        loadSummary(), loadCharts(), loadRecent(), loadBudgetStatus(),
+        loadAIInsight(), loadInsightsSummary()
+    ]);
 })();
 </script>
 {% endblock %}

@@ -1,0 +1,372 @@
+{% extends "_layout.html" %}
+
+{% block title %}AI Insights{% endblock %}
+{% set active_page = 'insights' %}
+{% block page_title %}AI Insights & Nâng cấp thông minh{% endblock %}
+{% block page_subtitle %}Dự báo, cảnh báo, hóa đơn định kỳ, mô phỏng & tối ưu chi phí{% endblock %}
+
+{% block content %}
+<!-- Row 1: Forecast + Survival -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <!-- A1. Forecast nâng cấp -->
+    <div class="card" id="forecast-card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800">🔮 Dự báo chi tiêu cuối tháng</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-semibold">NÂNG CẤP</span>
+        </div>
+        <div id="forecast-content" class="text-slate-600 text-sm">Đang tải...</div>
+    </div>
+
+    <!-- D. Survival days -->
+    <div class="card" id="survival-card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800">🛡️ Quỹ dự phòng / Số ngày sinh tồn</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-semibold">MỚI</span>
+        </div>
+        <div id="survival-content" class="text-slate-600 text-sm">Đang tải...</div>
+    </div>
+</div>
+
+<!-- Row 2: Anomaly + Recurring -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <!-- A2. Anomaly -->
+    <div class="card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800">⚠️ Khoản chi bất thường</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold">AI</span>
+        </div>
+        <div id="anomaly-content" class="space-y-2 max-h-72 overflow-y-auto">Đang tải...</div>
+    </div>
+
+    <!-- B. Recurring bills -->
+    <div class="card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800">📋 Hóa đơn định kỳ</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-semibold">AI</span>
+        </div>
+        <div id="recurring-content" class="space-y-2 max-h-72 overflow-y-auto">Đang tải...</div>
+    </div>
+</div>
+
+<!-- Row 3: Simulation -->
+<div class="card mb-4">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-slate-800">🧪 Mô phỏng kịch bản "Nếu - Thì"</h3>
+        <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold">MỚI</span>
+    </div>
+    <p class="text-xs text-slate-500 mb-3">Mô phỏng không ghi vào dữ liệu thật. Chọn kịch bản bên dưới để xem tác động.</p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+        <button onclick="runSim('monthly_installment')" class="sim-btn p-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-sm font-medium text-blue-900 transition">
+            💳 Trả góp hàng tháng
+        </button>
+        <button onclick="runSim('income_change')" class="sim-btn p-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-sm font-medium text-amber-900 transition">
+            📉 Thu nhập thay đổi
+        </button>
+        <button onclick="runSim('lump_sum_expense')" class="sim-btn p-3 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg text-sm font-medium text-rose-900 transition">
+            💸 Mua 1 lần lớn
+        </button>
+        <button onclick="runSim('savings_target')" class="sim-btn p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-sm font-medium text-emerald-900 transition">
+            🎯 Tiết kiệm mục tiêu
+        </button>
+    </div>
+    <div id="sim-content" class="bg-slate-50 rounded-lg p-4 text-sm hidden"></div>
+</div>
+
+<!-- Row 4: Round-up + Bill Optimizer -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <!-- E. Round up -->
+    <div class="card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800">💰 Smart Round-up (Tiết kiệm lẻ)</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold">MỚI</span>
+        </div>
+        <div id="roundup-content">Đang tải...</div>
+    </div>
+
+    <!-- F. Bill optimizer -->
+    <div class="card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800">💸 AI Bill Optimizer</h3>
+            <span class="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700 font-semibold">MỚI</span>
+        </div>
+        <div id="bill-optimize-content">Đang tải...</div>
+    </div>
+</div>
+
+<!-- Info -->
+<div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
+    <span class="text-2xl">ℹ️</span>
+    <div class="text-sm text-slate-700">
+        <strong>Tính năng nâng cấp theo yêu cầu mới:</strong>
+        Tất cả dữ liệu dựa trên lịch sử giao dịch thật của bạn, không bịa số.
+        Mô phỏng tách biệt hoàn toàn với dữ liệu thật.
+        Hỏi AI Chatbot để được tư vấn chi tiết hơn từng mục.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CAT_BY_ID = Object.fromEntries({{ categories|tojson }}.map(c => [c.id, c]));
+
+// ===== A1. Forecast =====
+async function loadForecast() {
+    const res = await fetch('/api/forecast');
+    const d = await res.json();
+    if (!d.has_data) {
+        document.getElementById('forecast-content').innerHTML = `<p class="text-slate-500">${d.message}</p>`;
+        return;
+    }
+    const lvl = d.warning_level;
+    const lvlColors = {
+        danger: 'bg-rose-100 border-rose-300 text-rose-800',
+        warning: 'bg-amber-100 border-amber-300 text-amber-800',
+        watch: 'bg-yellow-100 border-yellow-300 text-yellow-800',
+        ok: 'bg-emerald-100 border-emerald-300 text-emerald-800'
+    };
+    const lvlText = {
+        danger: '🚨 Nguy hiểm', warning: '⚠️ Cảnh báo',
+        watch: '👀 Chú ý', ok: '✅ An toàn'
+    };
+    let html = `
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+            <div class="bg-slate-50 p-2 rounded"><span class="text-slate-500 text-xs">Đã chi</span><br><b>${formatVND(d.spent_so_far)}</b></div>
+            <div class="bg-slate-50 p-2 rounded"><span class="text-slate-500 text-xs">Tốc độ 7 ngày</span><br><b>${formatVND(d.speed_7day)}/ngày</b></div>
+            <div class="bg-indigo-50 p-2 rounded col-span-2"><span class="text-slate-500 text-xs">Ước tính cuối tháng</span><br><b class="text-indigo-700">${formatVND(d.forecast_total)}</b></div>
+        </div>
+        <div class="p-2 rounded border ${lvlColors[lvl]} mb-2 text-sm">
+            <strong>${lvlText[lvl]}</strong> · Ngân sách: ${formatVND(d.budget_total)}
+            ${d.diff_vs_budget > 0 ? `<br>Dự kiến vượt: <b>${formatVND(d.diff_vs_budget)}</b>` : ''}
+            ${d.overshoot_date ? `<br>Ngày vượt dự kiến: <b>${d.overshoot_date}</b>` : ''}
+        </div>
+        <p class="text-xs text-slate-500">📐 Moving Average: 70% tốc độ 7 ngày + 30% tốc độ tháng.</p>
+    `;
+    document.getElementById('forecast-content').innerHTML = html;
+}
+
+// ===== D. Survival =====
+async function loadSurvival() {
+    const res = await fetch('/api/survival');
+    const d = await res.json();
+    if (!d.has_data) {
+        document.getElementById('survival-content').innerHTML = `<p class="text-slate-500">${d.message}</p>`;
+        return;
+    }
+    const lvl = d.level;
+    const colors = {
+        danger: 'bg-rose-100 border-rose-300 text-rose-800',
+        warning: 'bg-amber-100 border-amber-300 text-amber-800',
+        watch: 'bg-yellow-100 border-yellow-300 text-yellow-800',
+        safe: 'bg-emerald-100 border-emerald-300 text-emerald-800'
+    };
+    const text = {
+        danger: '🚨 Quỹ âm - Cần hành động ngay',
+        warning: '⚠️ Quỹ dưới 30 ngày',
+        watch: '👀 Quỹ 30-60 ngày',
+        safe: '✅ An toàn'
+    };
+    const html = `
+        <div class="text-center my-3">
+            <div class="text-5xl font-bold ${lvl==='danger'?'text-rose-600':lvl==='warning'?'text-amber-600':lvl==='watch'?'text-yellow-600':'text-emerald-600'}">${d.survival_days}</div>
+            <div class="text-sm text-slate-500 mt-1">ngày sinh tồn</div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-50 p-2 rounded"><span class="text-slate-500">Số dư khả dụng</span><br><b>${formatVND(d.balance_available)}</b></div>
+            <div class="bg-slate-50 p-2 rounded"><span class="text-slate-500">Chi thiết yếu/ngày</span><br><b>${formatVND(d.essential_per_day)}</b></div>
+        </div>
+        <div class="p-2 rounded border ${colors[lvl]} mt-3 text-xs">
+            <strong>${text[lvl]}</strong>
+        </div>
+    `;
+    document.getElementById('survival-content').innerHTML = html;
+}
+
+// ===== A2. Anomaly =====
+async function loadAnomalies() {
+    const res = await fetch('/api/anomalies');
+    const d = await res.json();
+    if (d.anomalies.length === 0) {
+        document.getElementById('anomaly-content').innerHTML = '<p class="text-emerald-600 text-sm">✅ Không phát hiện khoản chi bất thường.</p>';
+        return;
+    }
+    const html = d.anomalies.slice(0, 5).map(a => {
+        const sev = a.severity === 'high' ? '🚨' : '⚠️';
+        const bg = a.severity === 'high' ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200';
+        return `
+        <div class="${bg} border rounded-lg p-2 text-xs">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <span class="text-base">${sev}</span>
+                    <span>${a.category_icon}</span>
+                    <span class="font-medium truncate">${a.description}</span>
+                </div>
+                <span class="font-bold text-rose-700 ml-2 whitespace-nowrap">${formatVND(a.amount)}</span>
+            </div>
+            <div class="text-slate-500 mt-1">Gấp <b>${a.ratio}×</b> thông thường (${formatVND(a.median_amount)}), z=${a.z_score}</div>
+        </div>`;
+    }).join('');
+    document.getElementById('anomaly-content').innerHTML = html;
+}
+
+// ===== B. Recurring =====
+async function loadRecurring() {
+    const res = await fetch('/api/recurring');
+    const d = await res.json();
+    if (d.bills.length === 0) {
+        document.getElementById('recurring-content').innerHTML = '<p class="text-slate-500 text-sm">Chưa phát hiện hóa đơn định kỳ.</p>';
+        return;
+    }
+    const html = d.bills.map(b => {
+        const isImminent = b.is_imminent;
+        const isUpcoming = b.is_upcoming;
+        const bg = isImminent ? 'bg-rose-50 border-rose-200' : isUpcoming ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200';
+        const flag = isImminent ? '🚨' : isUpcoming ? '⏰' : '📌';
+        return `
+        <div class="${bg} border rounded-lg p-2 text-xs">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-base">${flag}</span>
+                    <span>${b.category_icon}</span>
+                    <span class="font-medium">${b.label.charAt(0).toUpperCase() + b.label.slice(1)}</span>
+                </div>
+                <span class="font-bold">${formatVND(b.avg_amount)}/${b.cycle_text}</span>
+            </div>
+            <div class="text-slate-500 mt-1">
+                ${b.occurrences} lần · kế tiếp: <b>${b.next_date_str}</b>
+                ${b.days_until !== null ? ` (còn ${b.days_until} ngày)` : ''}
+            </div>
+        </div>`;
+    }).join('');
+    document.getElementById('recurring-content').innerHTML = html;
+}
+
+// ===== C. Simulation =====
+async function runSim(type) {
+    let payload = { scenario_type: type };
+    if (type === 'monthly_installment') {
+        const amt = prompt('Số tiền trả góp mỗi tháng (VNĐ)?', '2000000');
+        if (!amt) return;
+        const months = prompt('Số tháng?', '12');
+        if (!months) return;
+        payload.amount = parseInt(amt); payload.months = parseInt(months);
+    } else if (type === 'income_change') {
+        const pct = prompt('Phần trăm thay đổi thu nhập (âm = giảm)?', '-20');
+        if (!pct) return;
+        payload.percent = parseFloat(pct);
+    } else if (type === 'lump_sum_expense') {
+        const amt = prompt('Số tiền chi 1 lần (VNĐ)?', '20000000');
+        if (!amt) return;
+        payload.amount = parseInt(amt);
+    } else if (type === 'savings_target') {
+        const target = prompt('Số tiền mục tiêu?', '5000000');
+        if (!target) return;
+        const months = prompt('Trong bao nhiêu tháng?', '3');
+        if (!months) return;
+        payload.target = parseInt(target); payload.months = parseInt(months);
+    }
+
+    const out = document.getElementById('sim-content');
+    out.classList.remove('hidden');
+    out.innerHTML = '⏳ Đang mô phỏng...';
+
+    const res = await fetch('/api/simulate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const d = await res.json();
+    if (d.error) {
+        out.innerHTML = `<p class="text-rose-600">❌ Lỗi: ${d.error}</p>`;
+        return;
+    }
+    let html = `<h4 class="font-bold text-slate-800 mb-2">📋 Kịch bản: <code>${d.scenario}</code></h4>`;
+    html += `<div class="grid grid-cols-2 gap-2 mb-3">`;
+    html += `<div class="bg-white p-2 rounded"><b>Hiện tại</b><br>Thu: ${formatVND(d.current.income_month)}<br>Chi: ${formatVND(d.current.expense_month)}<br>SD: ${formatVND(d.current.balance_month)}</div>`;
+    html += `<div class="bg-indigo-50 p-2 rounded"><b>Sau mô phỏng</b><br>`;
+    for (const [k, v] of Object.entries(d.after)) {
+        html += `${k}: <b>${typeof v==='number'?formatVND(v):v}</b><br>`;
+    }
+    html += `</div></div>`;
+    if (d.impact && Object.keys(d.impact).length) {
+        html += `<div class="bg-purple-50 p-2 rounded text-xs">`;
+        for (const [k, v] of Object.entries(d.impact)) {
+            if (k === 'warning') html += `<p class="font-bold">${v}</p>`;
+            else html += `${k}: <b>${typeof v==='number'?formatVND(v):v}</b> · `;
+        }
+        html += `</div>`;
+    }
+    html += `<p class="text-xs text-slate-400 mt-2">⚠️ Mô phỏng - không ghi vào dữ liệu thật.</p>`;
+    out.innerHTML = html;
+}
+
+// ===== E. Round-up =====
+async function loadRoundup() {
+    const res = await fetch('/api/roundup');
+    const d = await res.json();
+    if (d.scope === 'month') {
+        if (d.items_count === 0) {
+            document.getElementById('roundup-content').innerHTML = '<p class="text-slate-500 text-sm">Chưa có giao dịch để làm tròn.</p>';
+            return;
+        }
+        const html = `
+            <div class="space-y-2">
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div class="bg-slate-50 p-2 rounded"><span class="text-xs text-slate-500">Tổng gốc</span><br><b>${formatVND(d.total_original)}</b></div>
+                    <div class="bg-emerald-50 p-2 rounded"><span class="text-xs text-slate-500">Tiết kiệm thêm</span><br><b class="text-emerald-700">${formatVND(d.total_saved)}</b></div>
+                </div>
+                <p class="text-xs text-slate-500">📐 Làm tròn lên bội số 10k/50k/100k tùy mệnh giá.</p>
+                <details class="text-xs">
+                    <summary class="cursor-pointer text-indigo-600">Xem chi tiết ${d.items_count} giao dịch</summary>
+                    <div class="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                        ${d.items.slice(0,15).map(it => `
+                            <div class="flex justify-between bg-slate-50 p-1.5 rounded">
+                                <span class="truncate">${it.description}</span>
+                                <span class="text-emerald-600 font-bold ml-2">+${formatVND(it.saved)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>
+            </div>`;
+        document.getElementById('roundup-content').innerHTML = html;
+    }
+}
+
+// ===== F. Bill Optimizer =====
+async function loadBillOptimize() {
+    const res = await fetch('/api/bill-optimize');
+    const d = await res.json();
+    if (!d.has_data) {
+        document.getElementById('bill-optimize-content').innerHTML = `<p class="text-slate-500 text-sm">${d.message}</p>`;
+        return;
+    }
+    let html = `
+        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+            <div class="bg-slate-50 p-2 rounded"><span class="text-xs text-slate-500">Tổng/tháng</span><br><b>${formatVND(d.monthly_total)}</b></div>
+            <div class="bg-amber-50 p-2 rounded"><span class="text-xs text-slate-500">Quy năm</span><br><b>${formatVND(d.yearly_total)}</b></div>
+        </div>
+    `;
+    if (d.suggestions.length > 0) {
+        html += `<div class="space-y-2">`;
+        d.suggestions.slice(0, 4).forEach(s => {
+            html += `<div class="bg-emerald-50 border border-emerald-200 rounded p-2 text-xs">
+                <b class="text-emerald-900">${s.title}</b><br>
+                <span class="text-slate-700">${s.detail}</span>
+            </div>`;
+        });
+        html += `</div>`;
+    } else {
+        html += `<p class="text-sm text-slate-500">✅ Không phát hiện khoản thừa.</p>`;
+    }
+    html += `<p class="text-xs text-slate-400 mt-2">⚠️ Không bịa giá - tích hợp API thật khi production.</p>`;
+    document.getElementById('bill-optimize-content').innerHTML = html;
+}
+
+// Init
+(async () => {
+    await Promise.all([
+        loadForecast(), loadSurvival(), loadAnomalies(),
+        loadRecurring(), loadRoundup(), loadBillOptimize()
+    ]);
+})();
+</script>
+{% endblock %}
